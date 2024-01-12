@@ -14,9 +14,9 @@ alf = "abcd"
 genVal :: StdGen -> (Val, StdGen)
 genVal stdGen = do
     let newRandom = random stdGen :: (Int, StdGen)
-    case  (fst newRandom) `mod` 7 of
-        6 -> (Eps, snd newRandom)
-        5 -> (Empty, snd newRandom)
+    case  (fst newRandom) `mod` 6 of
+        5 -> (Eps, snd newRandom)
+        4 -> (Empty, snd newRandom)
         ind -> (Var (alf !! ind), snd newRandom)
 
 genReg :: StdGen -> Int -> (Reg, StdGen)
@@ -99,6 +99,10 @@ incriseMul (Klini reg1) (Klini reg2) =
     if (isEqReg reg1 reg2)
     then Klini reg1
     else Mul (Klini reg1) (Klini reg2)
+incriseMul reg1 (Klini reg2) = 
+    if (isEqReg reg1 reg2)
+    then Klini reg1
+    else Mul (Klini reg1) (Klini reg2)
 incriseMul reg1 reg2 = Mul reg1 reg2
 
 
@@ -118,17 +122,16 @@ someFunc :: IO ()
 someFunc = do
     stdGen <- newStdGen
     let
-        defReg = Shuffle (Variable (Klini (OneVal (Var 'a')))  (Klini (OneVal (Var 'b')))) (Klini (OneVal (Var 'a')))
-        genRegV = fst $ genReg stdGen 5
-    --print $ show genRegV
+        defReg = Shuffle (Klini (OneVal (Var 'b'))) (Klini (OneVal (Var 'a')))
+        genRegV = fst $ genReg stdGen 3
     let
         x = (derByVar defReg 'b')
         y = (derByVar(derByVar defReg 'b') 'a')
     --print (isEqReg x y)
-    --print (show (derByVar defReg 'b'))
+    print (show (genRegV))
     --print (show (derByVar(derByVar defReg 'b') 'a'))
     --print (show (derByVar(derByVar defReg 'b') 'b'))
-    print ( show(makeAutomat(makeInitAutomat genRegV [])))
+    print (show(makeAutomat(makeInitAutomat genRegV [])))
 
 
 makeInitAutomat :: Reg -> [(Reg, Char, Reg, Bool )] -> [(Reg, Char, Reg, Bool )] --список троек
@@ -167,14 +170,6 @@ addOneRegAutomat reg v currentAutomat = do
     if (isEqReg newReg (OneVal Empty)) || isInAutomat (reg, v, newReg, False) currentAutomat
     then currentAutomat
     else (reg, v, newReg, False) : currentAutomat
-
-
-
-
-
-
-
-
 
 
 --(((A*)|(b*)) # (a*))
