@@ -1,0 +1,16 @@
+/Users/nechit/.ghcup/ghc/9.4.7/lib/ghc-9.4.7/lib/x86_64-osx-ghc-9.4.7/rts-1.0.2/include/ghcversion.h:
+  hash: ee548d48ca5c94d7c7fab127ec07be47b01afa24d6495358aa9ff6cfc8541c81
+/Users/nechit/ToFL/TFL1/.stack-work/dist/x86_64-osx/ghc-9.4.7/build/TFL1-test/autogen/Paths_TFL1.hs:
+  hash: 962a6c0a229a7ebf7fb9ed6b7b794458b11496730a52b807c57bfc1dcb1da165
+/Users/nechit/ToFL/TFL1/.stack-work/dist/x86_64-osx/ghc-9.4.7/build/TFL1-test/autogen/cabal_macros.h:
+  hash: 914d4cc49a41045b0a15c784fc4f72ee2b1198468db31d287371a781a0d2a0eb
+/Users/nechit/ToFL/TFL1/CHANGELOG.md:
+  hash: 7f0447c3c93a855f7f006b9bb93b0638a0df609eca63e30b40bf9875c2aecc03
+/Users/nechit/ToFL/TFL1/README.md:
+  hash: db30d4aa6ba545e8eb538ec2be7d78d11e9b5323535aeab9908869f03c6424a7
+/Users/nechit/ToFL/TFL1/TFL1.cabal:
+  hash: 4f8211da465bfcb498fa9964c45ac7df512b0a7bc902c1754283c6fdc36c8d87
+/Users/nechit/ToFL/TFL1/package.yaml:
+  hash: 1228b85e7a1fcfe95fa13e1c5216570b4972e946b3374510b664bbd2aeab11d1
+/Users/nechit/ToFL/TFL1/test/Spec.hs:
+  hash: ef8d1c0c14bd7951b5db43ad0bc2b1c46ef3c248d621c644d3ddb98bc2a08ecc
