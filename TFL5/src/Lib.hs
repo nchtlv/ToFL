@@ -3,11 +3,13 @@ module Lib
       splitByArrow,
       prepareAutomate,
       makeAutomate,
+      addLastStates,
       Automate(..)
       --findSG
     ) where
 
 import Data.List.Split
+import Data.Char
 
 type State = [(String, String)]
 
@@ -91,7 +93,24 @@ addNewStateToA name x rules (Automate n states grammer transactions)  =
     let 
         newRules = rules ++ (makeSet (applyGrammer x rules grammer))
     in
-        Automate (n+1) (( x : show n, newRules, False) : states) grammer ((name, x, x : show n) : transactions)
+        case checkState states newRules of
+            Nothing -> Automate (n+1) (( x : show n, newRules, False) : states) grammer ((name, x, x : show n) : transactions)
+            Just name1 ->
+                Automate n states grammer ((name, x, name1) : transactions) 
+
+checkState :: [(String, State, Bool)] -> State -> Maybe String
+checkState [] _ = Nothing
+checkState ((name, state, _) : xs) newState = 
+    if checkState' newState state && checkState' state newState
+        then Just name
+        else checkState xs newState
+
+checkState' :: State -> State -> Bool
+checkState' [] _ = True
+checkState' (x : xs) state =
+    if member x state 
+        then checkState' xs state
+        else False
 
 
 makeSet :: State -> State
@@ -158,54 +177,65 @@ moveDot (x1: x2 : xs) =
     if x1 == '.' then x2 : x1 : xs else x1 : moveDot (x2: xs)
 
 
--- Automate {freeNumber = 2, 
--- states = [("a1",[("S","a.Dc"),("D",".Db"),("D",".b")],True),
--- ("S0",[("S'","S.")],True),
--- ("Init",[("S'",".S"),("S",".aDc")],True)], 
--- grammer = [("S","aDc"),("D","Db"),("D","b")], 
--- transactions = [("Init",'a',"a1"),("Init",'S',"S0")]}
+addLastStates :: Automate -> Automate
+addLastStates (Automate n states grammer transactions) = do
+    let
+        newTransactions = addLastStates' states grammer
+    Automate n states grammer (newTransactions ++ transactions)
 
 
--- Automate {freeNumber = 2, 
--- states = [("a1",[("S","a.Dc")],True),
--- ("S0",[("S'","S."),("S",".aDc")],True),
--- ("Init",[("S'",".S"),("S",".aDc")],True)], 
--- grammer = [("S","aDc"),("D","Db"),("D","b")], 
--- transactions = [("Init",'a',"a1"),("Init",'S',"S0")]}
+addLastStates' :: [(String, State, Bool)] -> State -> [(String, Char, String)]
+addLastStates' [] _ = []
+addLastStates' ((name, rules, flag) : xs) grammer =
+    addLastStates'' rules grammer name ++ addLastStates' xs grammer
 
--- Automate {freeNumber = 9, 
--- states = [("b8",[("D","Db.")],True),
--- ("c7",[("S","aDc.")],True),
--- ("b6",[("D","Db.")],True),
--- ("c5",[("S","aDc.")],True),
--- ("b4",[("D","b.")],True),
--- ("D3",[("S","aD.c"),("D","D.b")],True),
--- ("D2",[("S","aD.c"),("D","D.b")],True),
--- ("a1",[("S","a.Dc"),("D",".Db"),("D",".b")],True),
--- ("S0",[("S'","S.")],True),
--- ("Init",[("S'",".S"),("S",".aDc")],True)],
--- grammer = [("S","aDc"),("D","Db"),("D","b")], 
--- transactions = [("D2",'b',"b8"),
--- ("D2",'c',"c7"),
--- ("D3",'b',"b6"),
--- ("D3",'c',"c5"),
--- ("a1",'b',"b4"),
--- ("a1",'D',"D3"),
+
+addLastStates'' :: State -> State -> String -> [(String, Char, String)]
+addLastStates'' [] _ _ = []
+addLastStates'' ((left, right) : xs) grammer name = 
+    addLastStates''' right grammer name (isLower $ head name) (getNumber (left, filter (\x -> x /= '.') right) grammer 0)
+        ++ addLastStates'' xs grammer name
+
+addLastStates''' :: String -> State -> String -> Bool -> Int -> [(String, Char, String)]
+addLastStates''' [] grammer name _  _= []
+addLastStates''' [last] grammer name isTerm number =
+    if last == '.'
+        then 
+            if isTerm
+                then (name, '|', '*' : show number)  : 
+                    map (\t -> (name, t, '*' : show number)) (makeSet'(getTerminals grammer))
+                else [(name, '|', "tick")]
+        else []
+addLastStates''' (x : xs) grammer name isTerm number =  
+    addLastStates''' xs grammer name isTerm number
+
+
+getTerminals :: State -> String
+getTerminals [] = []
+getTerminals ((left, right) : xs) = getTerminals' right ++ getTerminals xs
+
+
+getTerminals' :: String -> String
+getTerminals' line = filter isLower line
+
+getNumber :: (String, String) -> State -> Int -> Int
+getNumber _ [] number = number
+getNumber (left, right) ((left1, right1) : xs) number =
+    if left == left1 && right == right1
+        then number
+        else getNumber (left, right) xs (number + 1 )
+
+
+-- Automate {freeNumber = 6, states = [("b5",[("D","Db.")],True),("c4",[("S","aDc.")],True),("b3",[("D","b.")],True),("D2",[("S","aD.c"),("D","D.b")],True),
+-- ("a1",[("S","a.Dc"),("D",".Db"),("D",".b")],True),("S0",[("S'","S.")],True),("Init",[("S'",".S"),("S",".aDc")],True)], 
+-- grammer = [("S'","S"),("S","aDc"),("D","Db"),("D","b")], 
+-- transactions = [
+-- ("b5",'|',"*2"),("b5",'a',"*2"),("b5",'c',"*2"),("b5",'b',"*2"),
+-- ("c4",'|',"*1"),("c4",'a',"*1"),("c4",'c',"*1"),("c4",'b',"*1"),
+-- ("b3",'|',"*3"),("b3",'a',"*3"),("b3",'c',"*3"),("b3",'b',"*3"),
+-- ("S0",'|',"tick"),
+-- ("D2",'b',"b5"),("D2",'c',"c4"),
+-- ("a1",'b',"b3"),
 -- ("a1",'D',"D2"),
--- ("Init",'a',"a1"),("Init",'S',"S0")]}
-
-Automate {freeNumber = 6, 
-states = [("b5",[("D","Db.")],True),
-("c4",[("S","aDc.")],True),
-("b3",[("D","b.")],True),
-("D2",[("S","aD.c"),("D","D.b")],True),
-("a1",[("S","a.Dc"),("D",".Db"),("D",".b")],True),
-("S0",[("S'","S.")],True),
-("Init",[("S'",".S"),("S",".aDc")],True)], 
-grammer = [("S","aDc"),("D","Db"),("D","b")], 
-transactions = [("D2",'b',"b5"),
-("D2",'c',"c4"),
-("a1",'b',"b3"),
-("a1",'D',"D2"),
-("Init",'a',"a1"),
-("Init",'S',"S0")]}
+-- ("Init",'a',"a1"),
+-- ("Init",'S',"S0")]}
