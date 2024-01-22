@@ -11,6 +11,21 @@ data Reg = OneVal Val| Variable Reg Reg | Mul Reg Reg | Shuffle Reg Reg | Klini 
 alf :: String
 alf = "abcd"
 
+
+-- regExpToString :: String -> Reg
+-- regExpToString re = 
+--     parse [re] "" where
+--         parse :: [String] -> String -> String
+--         parse re xs = case re of 
+--             [] -> xs
+--             Empty:rs -> parse rs ('∅':xs)
+--             Eps:rs -> parse rs ('ϵ':xs)
+--             [Variable rs] -> '(' : tail (foldl (++) "" ["|" ++ (parse [ri] "") | ri <- rs]) ++ ")"
+--             [Shuffle rs] -> '(' : tail (foldl (++) "" ["#" ++ (parse [ri] "") | ri <- rs]) ++ ")"
+--             [Mul rs] -> (foldl (++) "" [(parse [ri] "") | ri <- rs])
+--             Klini r:rs -> '(' : (parse (r:rs) xs) ++ ")" ++ "*"
+--             Var x:rs -> parse rs (x:xs)
+
 genVal :: StdGen -> (Val, StdGen)
 genVal stdGen = do
     let newRandom = random stdGen :: (Int, StdGen)
@@ -117,21 +132,34 @@ incriseShuffle reg1 reg2 =
     then reg1
     else Shuffle reg1 reg2
 
+postfixToInfix :: Reg -> String
+postfixToInfix (OneVal (Var c)) = [c]
+postfixToInfix (OneVal Empty) = "Empty"
+postfixToInfix (OneVal Eps) = "Eps"
+postfixToInfix (Variable reg1 reg2) = "(" ++ postfixToInfix reg1 ++ ")" ++ "(" ++ postfixToInfix reg2 ++ ")"
+postfixToInfix (Mul reg1 reg2) = postfixToInfix reg1 ++ "*" ++ postfixToInfix reg2
+postfixToInfix (Shuffle reg1 reg2) = postfixToInfix reg1 ++ "||" ++ postfixToInfix reg2
+postfixToInfix (Klini reg) = "(" ++ postfixToInfix reg ++ ")*"
+
+convertListToString :: [(Reg, Char, Reg, Bool)] -> String
+convertListToString [] = ""
+convertListToString ((reg1, _, reg2, _):xs) = postfixToInfix reg1 ++ "," ++ postfixToInfix reg2 ++ "," ++ convertListToString xs
+
 
 someFunc :: IO ()
 someFunc = do
     stdGen <- newStdGen
     let
-        defReg = Shuffle (Klini (OneVal (Var 'b'))) (Klini (OneVal (Var 'a')))
+        --defReg = Shuffle (Klini (OneVal (Var 'b'))) (Klini (OneVal (Var 'a')))
         genRegV = fst $ genReg stdGen 3
     let
-        x = (derByVar defReg 'b')
-        y = (derByVar(derByVar defReg 'b') 'a')
-    --print (isEqReg x y)
+        -- x = (derByVar defReg 'b')
+        -- y = (derByVar(derByVar defReg 'b') 'a')
+    putStrLn $ postfixToInfix genRegV
     print (show (genRegV))
     --print (show (derByVar(derByVar defReg 'b') 'a'))
     --print (show (derByVar(derByVar defReg 'b') 'b'))
-    print (show(makeAutomat(makeInitAutomat genRegV [])))
+    print (convertListToString(makeAutomat(makeInitAutomat genRegV [])))
 
 
 makeInitAutomat :: Reg -> [(Reg, Char, Reg, Bool )] -> [(Reg, Char, Reg, Bool )] --список троек
