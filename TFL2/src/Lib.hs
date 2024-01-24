@@ -12,20 +12,6 @@ alf :: String
 alf = "abcd"
 
 
--- regExpToString :: String -> Reg
--- regExpToString re = 
---     parse [re] "" where
---         parse :: [String] -> String -> String
---         parse re xs = case re of 
---             [] -> xs
---             Empty:rs -> parse rs ('∅':xs)
---             Eps:rs -> parse rs ('ϵ':xs)
---             [Variable rs] -> '(' : tail (foldl (++) "" ["|" ++ (parse [ri] "") | ri <- rs]) ++ ")"
---             [Shuffle rs] -> '(' : tail (foldl (++) "" ["#" ++ (parse [ri] "") | ri <- rs]) ++ ")"
---             [Mul rs] -> (foldl (++) "" [(parse [ri] "") | ri <- rs])
---             Klini r:rs -> '(' : (parse (r:rs) xs) ++ ")" ++ "*"
---             Var x:rs -> parse rs (x:xs)
-
 genVal :: StdGen -> (Val, StdGen)
 genVal stdGen = do
     let newRandom = random stdGen :: (Int, StdGen)
@@ -121,7 +107,6 @@ incriseMul reg1 (Klini reg2) =
 incriseMul reg1 reg2 = Mul reg1 reg2
 
 
-
 incriseShuffle :: Reg -> Reg -> Reg
 incriseShuffle reg (OneVal Eps) = reg
 incriseShuffle (OneVal Eps) reg = reg
@@ -145,24 +130,61 @@ convertListToString :: [(Reg, Char, Reg, Bool)] -> String
 convertListToString [] = ""
 convertListToString ((reg1, _, reg2, _):xs) = postfixToInfix reg1 ++ "," ++ postfixToInfix reg2 ++ "," ++ convertListToString xs
 
+-- showReg :: Reg -> String
+-- showReg (OneVal val) = show val
+-- showReg (Variable r1 r2) = "Variable " ++ showReg r1 ++ " " ++ showReg r2
+-- showReg (Mul r1 r2) = "Mul " ++ showReg r1 ++ " " ++ showReg r2
+-- showReg (Shuffle r1 r2) = "Shuffle " ++ showReg r1 ++ " " ++ showReg r2
+-- showReg (Klini r) = "Klini " ++ showReg r
+
+-- parseVal :: String -> (Val, String)
+-- parseVal ('0' : xs) = (Eps, xs)
+-- parseVal ('V' : c : xs) = (Var c, xs)
+-- parseVal (' ' : xs) = (Empty, xs)
+-- parseVal (x : xs) = (Var x, xs)
+
+-- parseReg :: String -> (Reg, String)
+-- parseReg ('O':xs) =
+--     let (val, rest) = parseVal xs
+--     in (OneVal val, rest)
+-- parseReg ('V':xs) =
+--     let (r1, remaining) = parseReg xs
+--         (r2, rest) = parseReg remaining
+--     in (Variable r1 r2, rest)
+-- parseReg ('M':xs) =
+--     let (r1, remaining) = parseReg xs
+--         (r2, rest) = parseReg remaining
+--     in (Mul r1 r2, rest)
+-- parseReg ('S':xs) =
+--     let (r1, remaining) = parseReg xs
+--         (r2, rest) = parseReg remaining
+--     in (Shuffle r1 r2, rest)
+-- parseReg ('*':xs) =
+--     let (r, remaining) = parseReg xs
+--     in (Klini r, remaining)
+
 
 someFunc :: IO ()
 someFunc = do
     stdGen <- newStdGen
+    --word <- getLine
     let
-        --defReg = Shuffle (Klini (OneVal (Var 'b'))) (Klini (OneVal (Var 'a')))
+        --defReg = Shuffle (Mul(Klini (OneVal (Var 'b'))) (OneVal (Var 'c'))) (Klini (OneVal (Var 'a')))
         genRegV = fst $ genReg stdGen 3
     let
         -- x = (derByVar defReg 'b')
         -- y = (derByVar(derByVar defReg 'b') 'a')
-    putStrLn $ postfixToInfix genRegV
-    print (show (genRegV))
+    -- putStrLn $ postfixToInfix genRegV
+    -- print (show (genRegV))
+    -- print word
+    -- print (show(infixToPrefix word))
     --print (show (derByVar(derByVar defReg 'b') 'a'))
     --print (show (derByVar(derByVar defReg 'b') 'b'))
+    print (postfixToInfix(genRegV))
     print (convertListToString(makeAutomat(makeInitAutomat genRegV [])))
 
 
-makeInitAutomat :: Reg -> [(Reg, Char, Reg, Bool )] -> [(Reg, Char, Reg, Bool )] --список троек
+makeInitAutomat :: Reg -> [(Reg, Char, Reg, Bool )] -> [(Reg, Char, Reg, Bool )]
 makeInitAutomat reg currentAutomat = 
     let
         newAutomatA = addOneRegAutomat reg 'a' currentAutomat
