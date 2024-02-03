@@ -4,9 +4,9 @@ module Lib
 
 import System.Random
 
-data Val = Var Char | Empty | Eps deriving Show
+data Val = Var Char | Empty | Eps deriving (Show, Read)
 
-data Reg = OneVal Val| Variable Reg Reg | Mul Reg Reg | Shuffle Reg Reg | Klini Reg deriving Show
+data Reg = OneVal Val| Variable Reg Reg | Mul Reg Reg | Shuffle Reg Reg | Klini Reg deriving (Show, Read)
 
 alf :: String
 alf = "abcd"
@@ -38,6 +38,27 @@ genReg stdGen depth = do
             3 -> Shuffle (fst newRandomReg1) (fst newRandomReg2)
             _ -> Klini (fst newRandomReg1)
         , snd newRandomReg2)
+
+tryToDecrease :: Reg -> Reg
+tryToDecrease (OneVal x) = OneVal x
+tryToDecrease (Variable reg1 reg2) = 
+    if (isEqReg reg1 reg2) 
+    then tryToDecrease reg1
+    else Variable (tryToDecrease reg1) (tryToDecrease reg2)
+tryToDecrease (Mul (Klini reg1) (Klini reg2)) =
+    if isEqReg reg1 reg2
+    then Klini (tryToDecrease reg1)
+    else Mul (tryToDecrease reg1) (tryToDecrease reg2)
+tryToDecrease (Mul (OneVal Empty) reg2) = OneVal Empty
+tryToDecrease (Mul reg1 (OneVal Empty)) = OneVal Empty
+tryToDecrease (Mul (OneVal Eps) reg2) = tryToDecrease reg2
+tryToDecrease (Mul reg1 (OneVal Eps)) = tryToDecrease reg1
+tryToDecrease (Mul reg1 reg2) = Mul (tryToDecrease reg1) (tryToDecrease reg2)
+tryToDecrease (Shuffle reg1 reg2) = Shuffle reg1 reg2
+tryToDecrease (Klini(Klini reg)) = tryToDecrease (Klini reg)
+tryToDecrease (Klini reg) = tryToDecrease reg
+
+
 
 derByVar :: Reg -> Char -> Reg 
 derByVar (OneVal Empty) _ = OneVal Empty
@@ -85,6 +106,23 @@ incriseVariable (OneVal Eps) (Klini reg) = Klini reg
 incriseVariable (Klini reg) (OneVal Eps) = Klini reg
 incriseVariable (OneVal Empty) reg = reg
 incriseVariable reg (OneVal Empty) = reg
+incriseVariable reg1 (Mul (Klini reg2) reg3) =
+    if isEqReg reg1 reg3
+    then Mul (Klini reg2) reg3
+    else Variable reg1 (Mul (Klini reg2) reg3)
+incriseVariable reg1 (Mul reg2 (Klini reg3)) =
+    if isEqReg reg1 reg2
+    then Mul reg2 (Klini reg3)
+    else Variable reg1 (Mul reg2 (Klini reg3))
+
+incriseVariable (Mul (Klini reg2) reg3) reg1 =
+    if isEqReg reg1 reg3
+    then Mul (Klini reg2) reg3
+    else Variable (Mul (Klini reg2) reg3) reg1
+incriseVariable (Mul reg2 (Klini reg3)) reg1 =
+    if isEqReg reg1 reg2
+    then Mul reg2 (Klini reg3)
+    else Variable(Mul reg2 (Klini reg3)) reg1 
 incriseVariable reg1 reg2 = 
     if isEqReg reg1 reg2
     then reg1
@@ -121,67 +159,80 @@ postfixToInfix :: Reg -> String
 postfixToInfix (OneVal (Var c)) = [c]
 postfixToInfix (OneVal Empty) = "Empty"
 postfixToInfix (OneVal Eps) = "Eps"
-postfixToInfix (Variable reg1 reg2) = "(" ++ postfixToInfix reg1 ++ ")" ++ "(" ++ postfixToInfix reg2 ++ ")"
-postfixToInfix (Mul reg1 reg2) = postfixToInfix reg1 ++ "*" ++ postfixToInfix reg2
-postfixToInfix (Shuffle reg1 reg2) = postfixToInfix reg1 ++ "||" ++ postfixToInfix reg2
+postfixToInfix (Variable reg1 reg2) = "(" ++ postfixToInfix reg1 ++ ")" ++ "|"++"(" ++ postfixToInfix reg2 ++ ")"
+postfixToInfix (Mul reg1 reg2) = "(" ++ postfixToInfix reg1 ++ ")(" ++ postfixToInfix reg2 ++ ")"
+postfixToInfix (Shuffle reg1 reg2) = "(" ++ postfixToInfix reg1 ++ ")#(" ++ postfixToInfix reg2  ++ ")"
 postfixToInfix (Klini reg) = "(" ++ postfixToInfix reg ++ ")*"
 
 convertListToString :: [(Reg, Char, Reg, Bool)] -> String
 convertListToString [] = ""
-convertListToString ((reg1, _, reg2, _):xs) = postfixToInfix reg1 ++ "," ++ postfixToInfix reg2 ++ "," ++ convertListToString xs
+convertListToString ((reg1, c, reg2, _):xs) = postfixToInfix reg1 ++ "->" ++[c] ++ "->" ++ postfixToInfix reg2 ++ "\n" ++ convertListToString xs
 
--- showReg :: Reg -> String
--- showReg (OneVal val) = show val
--- showReg (Variable r1 r2) = "Variable " ++ showReg r1 ++ " " ++ showReg r2
--- showReg (Mul r1 r2) = "Mul " ++ showReg r1 ++ " " ++ showReg r2
--- showReg (Shuffle r1 r2) = "Shuffle " ++ showReg r1 ++ " " ++ showReg r2
--- showReg (Klini r) = "Klini " ++ showReg r
+convertString :: String -> Reg
+convertString [] = OneVal Empty
+convertString "Empty" = OneVal Empty
+convertString "Eps" = OneVal Eps
+convertString [x] = OneVal (Var x)
+convertString ('(' : str) = do
+    let
+        (left, right) = parseBr str 1
+    if right == ""
+    then convertString left
+    else do
+        case head right of
+            '*' -> 
+                if length right == 1
+                then Klini (convertString left)
+                else 
+                    case (head (tail right)) of
+                        '#' -> Shuffle (Klini (convertString left)) (convertString(tail (tail right)))
+                        '|' -> Variable (Klini (convertString left)) (convertString(tail (tail right)))
+                        x -> Mul (Klini(convertString left)) (convertString(tail right))
+            '|' -> Variable (convertString left) (convertString (tail right))
+            '#' -> Shuffle (convertString left) (convertString (tail right))
+            x -> Mul (convertString left) (convertString right)
+convertString ('E' : 'm' : 'p': 't' : 'y': xs) = Mul (OneVal Empty) (convertString xs)
+convertString ('E' : 'p': 's': xs) = Mul (OneVal Eps) (convertString xs)
+convertString (x : xs)  = Mul (OneVal (Var x)) (convertString xs)
 
--- parseVal :: String -> (Val, String)
--- parseVal ('0' : xs) = (Eps, xs)
--- parseVal ('V' : c : xs) = (Var c, xs)
--- parseVal (' ' : xs) = (Empty, xs)
--- parseVal (x : xs) = (Var x, xs)
-
--- parseReg :: String -> (Reg, String)
--- parseReg ('O':xs) =
---     let (val, rest) = parseVal xs
---     in (OneVal val, rest)
--- parseReg ('V':xs) =
---     let (r1, remaining) = parseReg xs
---         (r2, rest) = parseReg remaining
---     in (Variable r1 r2, rest)
--- parseReg ('M':xs) =
---     let (r1, remaining) = parseReg xs
---         (r2, rest) = parseReg remaining
---     in (Mul r1 r2, rest)
--- parseReg ('S':xs) =
---     let (r1, remaining) = parseReg xs
---         (r2, rest) = parseReg remaining
---     in (Shuffle r1 r2, rest)
--- parseReg ('*':xs) =
---     let (r, remaining) = parseReg xs
---     in (Klini r, remaining)
+--необходимо ставить скобки везде, кроме умножения
+parseBr :: String -> Int -> (String, String)
+parseBr str 0 = ("", str)
+parseBr (')' : str) 1 = ("", str)
+parseBr (')' : str) n = do
+    let
+        (left, right) = parseBr str (n-1)
+    (')': left, right)
+parseBr ('(' : str) n = do
+    let
+        (left, right) = parseBr str (n+1)
+    ('(': left, right)
+parseBr (s : str) n = do
+    let
+        (left, right) = parseBr str n
+    (s : left, right)
 
 
 someFunc :: IO ()
 someFunc = do
     stdGen <- newStdGen
-    --word <- getLine
+    inputReg <- getLine
+    print $ show $ convertString $ filter (\x -> x /= ' ') inputReg
     let
-        --defReg = Shuffle (Mul(Klini (OneVal (Var 'b'))) (OneVal (Var 'c'))) (Klini (OneVal (Var 'a')))
-        genRegV = fst $ genReg stdGen 3
-    let
+        --inputReg' = read $ convertString inputReg
+        --defReg = read "Shuffle (Mul(Klini (OneVal (Var 'b'))) (OneVal (Var 'a'))) (Klini (OneVal (Var 'a')))"
+        inputReg' = convertString $ filter (\x -> x /= ' ') inputReg
+        --genRegV = tryToDecrease $ fst $ genReg stdGen 3
         -- x = (derByVar defReg 'b')
         -- y = (derByVar(derByVar defReg 'b') 'a')
     -- putStrLn $ postfixToInfix genRegV
-    -- print (show (genRegV))
+    --print (show (tryToDecrease inputReg'))
     -- print word
     -- print (show(infixToPrefix word))
     --print (show (derByVar(derByVar defReg 'b') 'a'))
     --print (show (derByVar(derByVar defReg 'b') 'b'))
-    print (postfixToInfix(genRegV))
-    print (convertListToString(makeAutomat(makeInitAutomat genRegV [])))
+    --print (postfixToInfix genRegV)
+    putStrLn (convertListToString(makeAutomat(makeInitAutomat inputReg' []) (makeInitAutomat inputReg' []) 100))
 
 
 makeInitAutomat :: Reg -> [(Reg, Char, Reg, Bool )] -> [(Reg, Char, Reg, Bool )]
@@ -193,17 +244,25 @@ makeInitAutomat reg currentAutomat =
         newAutomatD = addOneRegAutomat reg 'd' newAutomatC
     in newAutomatD
 
-makeAutomat :: [(Reg, Char, Reg, Bool)] -> [(Reg, Char, Reg, Bool)]
-makeAutomat [] = []
-makeAutomat ((reg1, v, reg2, True):xs) = (reg1, v, reg2, True) : makeAutomat xs
-makeAutomat ((reg1, v, reg2, False):xs) = 
+makeAutomat :: [(Reg, Char, Reg, Bool)] -> [(Reg, Char, Reg, Bool)] -> Int -> [(Reg, Char, Reg, Bool)]
+makeAutomat _ currentAutomat 0 = currentAutomat
+makeAutomat [] currentAutomat n = currentAutomat
+makeAutomat ((reg1, v, reg2, True):xs) currentAutomat n = makeAutomat xs currentAutomat(n-1)
+makeAutomat ((reg1, v, reg2, False):xs) currentAutomat n = 
     let
-        currentAutomat = ((reg1, v, reg2, True):xs)
-        newAutomatA = addOneRegAutomat reg2 'a' currentAutomat
+        currentAutomat1 =  changeFlag (reg1, v, reg2) currentAutomat
+        newAutomatA = addOneRegAutomat reg2 'a' currentAutomat1
         newAutomatB = addOneRegAutomat reg2 'b' newAutomatA
         newAutomatC = addOneRegAutomat reg2 'c' newAutomatB
         newAutomatD = addOneRegAutomat reg2 'd' newAutomatC
-    in makeAutomat newAutomatD
+    in makeAutomat newAutomatD newAutomatD (n-1)
+
+changeFlag :: (Reg, Char, Reg) -> [(Reg, Char, Reg, Bool)] -> [(Reg, Char, Reg, Bool)]
+changeFlag _ [] = []
+changeFlag (reg1, v1, reg2) ((reg3, v2, reg4, flag) : xs) =
+    if isEqReg reg1 reg3 && isEqReg reg2 reg4 && v1 == v2
+    then (reg1, v1, reg2, True) : changeFlag (reg1, v1, reg2) xs
+    else (reg3, v2, reg4, flag) : changeFlag (reg1, v1, reg2) xs
 
 isInAutomat :: (Reg, Char, Reg, Bool) -> [(Reg, Char, Reg, Bool)] -> Bool
 isInAutomat _ [] = False
@@ -220,65 +279,3 @@ addOneRegAutomat reg v currentAutomat = do
     if (isEqReg newReg (OneVal Empty)) || isInAutomat (reg, v, newReg, False) currentAutomat
     then currentAutomat
     else (reg, v, newReg, False) : currentAutomat
-
-
---(((A*)|(b*)) # (a*))
-
--- Shuffle (Klini (OneVal (Var 'b'))) (Klini (OneVal (Var 'a')))"
-
---"Mul (Klini (OneVal (Var 'b'))) (Klini (OneVal (Var 'a')))"
---"Mul (Klini (OneVal (Var 'b'))) (Klini (OneVal (Var 'a')))"
-
--- Variable 
---     (Shuffle 
---         (Variable 
---             (Mul (OneVal Eps) (Klini (OneVal (Var 'a')))) 
---             (Mul (OneVal Empty) (Klini (OneVal (Var 'b'))))) 
---         (Klini (OneVal (Var 'a')))) 
---     (Mul 
---         (Variable 
---             (Klini (OneVal (Var 'a'))) 
---             (Klini (OneVal (Var 'b')))) 
---         (Mul (OneVal Eps) (Klini (OneVal (Var 'a')))))
-
-
---      ((a* | b*) a*)
-
-
-
-
-
--- Variable 
---     (Shuffle 
---         (Variable 
---             (Mul (OneVal Eps) (Klini (OneVal (Var 'a')))) 
---             (Mul (OneVal Empty) (Klini (OneVal (Var 'b'))))) 
---         (Klini (OneVal (Var 'a')))) 
---     (Mul 
---         (Variable (Klini (OneVal (Var 'a')))
---         (Klini (OneVal (Var 'b')))) 
---         (Mul (OneVal Eps) (Klini (OneVal (Var 'a')))))
-
-
--- Variable    
---     (Klini (OneVal (Var 'a'))) 
---     (Mul 
---         (Variable 
---             (Klini (OneVal (Var 'a'))) 
---             (Klini (OneVal (Var 'b')))) 
---         (Klini (OneVal (Var 'a'))))
-
-
---        --((a* | b*) a*) | a*
-
-
--- (Shuffle (Klini (OneVal (Var 'b'))) (Klini (OneVal (Var 'a'))),'b',Shuffle (Klini (OneVal (Var 'b'))) (Klini (OneVal (Var 'a'))),True),
--- (Mul (Klini (OneVal (Var 'b'))) (Klini (OneVal (Var 'a'))),'b',Mul (Klini (OneVal (Var 'b'))) (Klini (OneVal (Var 'a'))),True),
--- (Klini (OneVal (Var 'a')),'a',Klini (OneVal (Var 'a')),True),
--- (Mul (Klini (OneVal (Var 'b'))) (Klini (OneVal (Var 'a'))),'a',Klini (OneVal (Var 'a')),True),
--- (Shuffle (Klini (OneVal (Var 'b'))) (Klini (OneVal (Var 'a'))),'a',Mul (Klini (OneVal (Var 'b'))) (Klini (OneVal (Var 'a'))),True),
--- (Shuffle (Variable (Klini (OneVal (Var 'a'))) (Klini (OneVal (Var 'b')))) (Klini (OneVal (Var 'a'))),'b',Shuffle (Klini (OneVal (Var 'b'))) (Klini (OneVal (Var 'a'))),True),
--- (Mul (Klini (OneVal (Var 'b'))) (Klini (OneVal (Var 'a'))),'b',Mul (Klini (OneVal (Var 'b'))) (Klini (OneVal (Var 'a'))),True),(Klini (OneVal (Var 'a')),'a',Klini (OneVal (Var 'a')),True),
--- (Mul (Klini (OneVal (Var 'b'))) (Klini (OneVal (Var 'a'))),'a',Klini (OneVal (Var 'a')),True),(Variable (Klini (OneVal (Var 'a'))) (Mul (Variable (Klini (OneVal (Var 'a'))) (Klini (OneVal (Var 'b')))) (Klini (OneVal (Var 'a')))),'b',Mul (Klini (OneVal (Var 'b'))) (Klini (OneVal (Var 'a'))),True),
--- (Klini (OneVal (Var 'a')),'a',Klini (OneVal (Var 'a')),True),(Variable (Klini (OneVal (Var 'a'))) (Mul (Variable (Klini (OneVal (Var 'a'))) (Klini (OneVal (Var 'b')))) (Klini (OneVal (Var 'a')))),'a',Klini (OneVal (Var 'a')),True),
--- (Shuffle (Variable (Klini (OneVal (Var 'a'))) (Klini (OneVal (Var 'b')))) (Klini (OneVal (Var 'a'))),'a',Variable (Klini (OneVal (Var 'a'))) (Mul (Variable (Klini (OneVal (Var 'a'))) (Klini (OneVal (Var 'b')))) (Klini (OneVal (Var 'a')))),True)]"
