@@ -19,14 +19,14 @@ def isSimple(rule, V, K):
 
 def TERM(productions, V, K):
     newProductions = []
-    dictionary = helper.setupDict(productions, V, terms=K)
+    dictionary, not_biective_nonterms = helper.setupDict(productions, V, terms=K)
     for production in productions:
         if isSimple(production, V, K):
             newProductions.append(production)
         else:
             for term in K:
                 for index, value in enumerate(production[right]):
-                    if term == value and not term in dictionary:
+                    if term == value and (term not in dictionary or dictionary[term] in not_biective_nonterms):
                         dictionary[term] = variablesJar.pop()
                         V.append(dictionary[term])
                         newProductions.append((dictionary[term], [term]))
@@ -36,6 +36,9 @@ def TERM(productions, V, K):
                         production[right][index] = dictionary[term]
             newProductions.append((production[left], production[right]))
 
+    print('TERM')
+    print(helper.prettyForm(newProductions))
+    print('=' * 60)
     return newProductions
 
 
