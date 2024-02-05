@@ -74,7 +74,7 @@ derByVar (Variable reg1 reg2) base = do
     incriseVariable left right
 derByVar (Klini reg) base = incriseMul (derByVar reg base) (Klini reg)
 derByVar (Shuffle reg1 reg2) base = 
-    incriseVariable (incriseShuffle (derByVar reg1 base) reg2) (incriseMul reg1 (derByVar reg2 base)) 
+    incriseVariable (incriseShuffle (derByVar reg1 base) reg2) (incriseShuffle reg1 (derByVar reg2 base)) 
 derByVar (Mul reg1 reg2)  base = 
     if (isEpsInAlf reg1) 
     then incriseVariable (incriseMul (derByVar reg1 base) reg2) (derByVar reg2 base)
