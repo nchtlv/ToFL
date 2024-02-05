@@ -1,5 +1,6 @@
 import re
 import itertools
+from collections import defaultdict
 
 left, right = 0, 1
 
@@ -54,7 +55,12 @@ def setupDict(productions, variables, terms):
         #
         if production[left] in variables and production[right][0] in terms and len(production[right]) == 1:
             result[production[right][0]] = production[left]
-    return result
+
+        not_biective_nonterms = defaultdict(int)
+        for nont in result.values():
+            not_biective_nonterms[nont] += 1
+        not_biective_nonterms = set(i for i, cnt in not_biective_nonterms.items() if cnt > 1)
+    return result,not_biective_nonterms
 
 
 def rewrite(target, production):
