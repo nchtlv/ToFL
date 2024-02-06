@@ -123,13 +123,24 @@ incriseVariable (Mul reg2 (Klini reg3)) reg1 =
     if isEqReg reg1 reg2
     then Mul reg2 (Klini reg3)
     else Variable(Mul reg2 (Klini reg3)) reg1 
+
+
+incriseVariable reg1 (Variable reg2 reg3) =
+    if isEqReg reg1 reg3 || isEqReg reg1 reg2
+    then Variable reg2 reg3
+    else Variable reg1 (Variable reg2 reg3)
+incriseVariable (Variable reg1 reg2) reg3 =
+    if isEqReg reg1 reg3 || isEqReg reg2 reg3
+    then Variable reg1 reg2
+    else Variable (Variable reg1 reg2) reg3
+
 incriseVariable reg1 reg2 = 
     if isEqReg reg1 reg2
     then reg1
     else Variable reg1 reg2
 
 
-incriseMul:: Reg -> Reg -> Reg
+incriseMul :: Reg -> Reg -> Reg
 incriseMul (OneVal Eps) reg = reg
 incriseMul reg (OneVal Eps) = reg
 incriseMul (OneVal Empty) reg = OneVal Empty
@@ -167,6 +178,56 @@ postfixToInfix (Klini reg) = "(" ++ postfixToInfix reg ++ ")*"
 convertListToString :: [(Reg, Char, Reg, Bool)] -> String
 convertListToString [] = ""
 convertListToString ((reg1, c, reg2, _):xs) = postfixToInfix reg1 ++ "->" ++[c] ++ "->" ++ postfixToInfix reg2 ++ "\n" ++ convertListToString xs
+
+--outputDot
+
+outputFile :: String -> IO()
+outputFile  str =
+    writeFile "output.dot" $
+       "digraph G { \n" ++ str ++ "\n}"
+
+
+addDefaultNames :: [(Reg, Char, Reg, Bool)] -> [(Reg, String, Char, Reg, String)]
+addDefaultNames [] = []
+addDefaultNames ((reg1, c, reg2, _) : xs) = (reg1, "", c, reg2, "") : addDefaultNames xs
+
+
+convertAutomat :: [(Reg, String, Char, Reg, String)] -> Int -> [String]
+convertAutomat [] _ = []
+convertAutomat ((reg1, name1, c, reg2, name2) : xs ) number =
+    case (name1, name2) of
+        ("", "") -> 
+            if isEqReg reg1 reg2
+            then 
+                let newxs = addName number reg1 xs
+                in (show number ++ " -> " ++ show number ++ " [label=\"" ++ [c] ++ "\"];") : convertAutomat newxs (number+1)
+            else
+                let
+                    newxs = addName number reg1 xs
+                    verynewxs = addName (number+1) reg2 newxs
+                in (show number ++ " -> " ++ show (number+1) ++ " [label=\"" ++ [c] ++ "\"];") : convertAutomat verynewxs (number+2)
+        ("", n2) ->
+            let newxs = addName number reg1 xs
+            in (show number ++ " -> " ++ n2 ++ " [label=\"" ++ [c] ++ "\"];") : convertAutomat newxs (number+1)
+        (n1, "") ->
+            let newxs = addName number reg2 xs
+            in (n1 ++ " -> " ++ show number ++ " [label=\"" ++ [c] ++ "\"];") : convertAutomat newxs (number+1)
+        (n1,n2) ->
+            (n1 ++ " -> " ++ n2 ++ " [label=\"" ++ [c] ++ "\"];") : convertAutomat xs number
+        
+addName :: Int -> Reg -> [(Reg, String, Char, Reg, String)] -> [(Reg, String, Char, Reg, String)]
+addName _ _ [] = []
+addName n reg ((reg1, name1, c, reg2, name2) : xs ) =
+    if isEqReg reg reg1
+    then 
+        if isEqReg reg reg2
+        then ((reg1, show n, c, reg2, show n) : addName n reg xs)
+        else ((reg1, show n, c, reg2, name2) : addName n reg xs)
+    else
+        if isEqReg reg reg2
+        then ((reg1, name1, c, reg2, show n) : addName n reg xs)
+        else ((reg1, name1, c, reg2, name2) : addName n reg xs)
+
 
 convertString :: String -> Reg
 convertString [] = OneVal Empty
@@ -213,6 +274,7 @@ parseBr (s : str) n = do
     (s : left, right)
 
 
+
 someFunc :: IO ()
 someFunc = do
     stdGen <- newStdGen
@@ -222,6 +284,7 @@ someFunc = do
         --inputReg' = read $ convertString inputReg
         --defReg = read "Shuffle (Mul(Klini (OneVal (Var 'b'))) (OneVal (Var 'a'))) (Klini (OneVal (Var 'a')))"
         inputReg' = convertString $ filter (\x -> x /= ' ') inputReg
+        automate = makeAutomat(makeInitAutomat inputReg' []) (makeInitAutomat inputReg' []) 100
         --genRegV = tryToDecrease $ fst $ genReg stdGen 3
         -- x = (derByVar defReg 'b')
         -- y = (derByVar(derByVar defReg 'b') 'a')
@@ -232,7 +295,9 @@ someFunc = do
     --print (show (derByVar(derByVar defReg 'b') 'a'))
     --print (show (derByVar(derByVar defReg 'b') 'b'))
     --print (postfixToInfix genRegV)
-    putStrLn (convertListToString(makeAutomat(makeInitAutomat inputReg' []) (makeInitAutomat inputReg' []) 100))
+    putStrLn (convertListToString automate)
+    print(foldr (++) "" (convertAutomat  (addDefaultNames $ reverse automate) 1))
+    outputFile $ "\t" ++ (foldr (\l r -> l ++ "\n\t" ++ r) "" (convertAutomat  (addDefaultNames $ reverse automate) 1))
 
 
 makeInitAutomat :: Reg -> [(Reg, Char, Reg, Bool )] -> [(Reg, Char, Reg, Bool )]
