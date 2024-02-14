@@ -188,7 +188,10 @@ outputFile  str =
         "fontname=\"Helvetica,Arial,sans-serif\" \n\t" ++
 	    "node [fontname=\"Helvetica,Arial,sans-serif\"] \n\t" ++
 	    "edge [fontname=\"Helvetica,Arial,sans-serif\"] \n\t" ++
-	    "rankdir=LR; \n" ++ str ++ "\n}"
+        "dummy [shape=none, label=\"\", width=0, height=0] \n\t" ++
+	    "rankdir=LR; \n\t" ++
+        "dummy -> 1 \n" ++
+        str ++ "\n}"
 
 
 addDefaultNames :: [(Reg, Char, Reg, Bool)] -> [(Reg, String, Char, Reg, String)]
@@ -232,6 +235,15 @@ addName n reg ((reg1, name1, c, reg2, name2) : xs ) =
         then ((reg1, name1, c, reg2, show n) : addName n reg xs)
         else ((reg1, name1, c, reg2, name2) : addName n reg xs)
 
+--final states
+checkEps :: Reg -> Bool
+checkEps (OneVal (Var var)) = False
+checkEps (OneVal Empty) = True
+checkEps (OneVal Eps) = True
+checkEps (Klini _) = True
+checkEps (Variable reg1 reg2) = checkEps reg1 || checkEps reg2
+checkEps (Mul reg1 reg2) = checkEps reg1 && checkEps reg2
+checkEps _ = False
 
 convertString :: String -> Reg
 convertString [] = OneVal Empty
@@ -299,6 +311,7 @@ someFunc = do
     --print (show (derByVar(derByVar defReg 'b') 'a'))
     --print (show (derByVar(derByVar defReg 'b') 'b'))
     --print (postfixToInfix genRegV)
+    --print (automate)
     putStrLn (convertListToString automate)
     print(foldr (++) "" (convertAutomat  (addDefaultNames $ reverse automate) 1))
     outputFile $ "\t" ++ (foldr (\l r -> l ++ "\n\t" ++ r) "" (convertAutomat  (addDefaultNames $ reverse automate) 1))
