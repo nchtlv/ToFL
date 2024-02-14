@@ -183,8 +183,12 @@ convertListToString ((reg1, c, reg2, _):xs) = postfixToInfix reg1 ++ "->" ++[c] 
 
 outputFile :: String -> IO()
 outputFile  str =
-    writeFile "output.dot" $
-       "digraph G { \n" ++ str ++ "\n}"
+    writeFile "output.txt" $
+        "digraph G {\n\t" ++
+        "fontname=\"Helvetica,Arial,sans-serif\" \n\t" ++
+	    "node [fontname=\"Helvetica,Arial,sans-serif\"] \n\t" ++
+	    "edge [fontname=\"Helvetica,Arial,sans-serif\"] \n\t" ++
+	    "rankdir=LR; \n" ++ str ++ "\n}"
 
 
 addDefaultNames :: [(Reg, Char, Reg, Bool)] -> [(Reg, String, Char, Reg, String)]
@@ -290,8 +294,8 @@ someFunc = do
         -- y = (derByVar(derByVar defReg 'b') 'a')
     -- putStrLn $ postfixToInfix genRegV
     --print (show (tryToDecrease inputReg'))
-    -- print word
-    -- print (show(infixToPrefix word))
+    --print word
+    --print (show(infixToPrefix word))
     --print (show (derByVar(derByVar defReg 'b') 'a'))
     --print (show (derByVar(derByVar defReg 'b') 'b'))
     --print (postfixToInfix genRegV)
