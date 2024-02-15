@@ -182,8 +182,8 @@ convertListToString ((reg1, c, reg2, _):xs) = postfixToInfix reg1 ++ "->" ++[c] 
 
 --outputDot
 
-outputFile :: String -> IO()
-outputFile  str =
+outputFile :: String -> String-> IO()
+outputFile  finals str=
     writeFile "output.txt" $
         "digraph G {\n\t" ++
         "fontname=\"Helvetica,Arial,sans-serif\" \n\t" ++
@@ -191,8 +191,11 @@ outputFile  str =
 	    "edge [fontname=\"Helvetica,Arial,sans-serif\"] \n\t" ++
         "dummy [shape=none, label=\"\", width=0, height=0] \n\t" ++
 	    "rankdir=LR; \n\t" ++
+        "node [shape = doublecircle]; " ++ finals ++ "\n\t" ++
+        "node [shape = circle];\n\t" ++
         "dummy -> 1 \n" ++
-        str ++ "\n}"
+        str ++ "}"
+
 
 --final states
 checkEps :: Reg -> Bool
@@ -319,26 +322,15 @@ someFunc = do
     inputReg <- getLine
     print $ show $ convertString $ filter (\x -> x /= ' ') inputReg
     let
-        --inputReg' = read $ convertString inputReg
-        --defReg = read "Shuffle (Mul(Klini (OneVal (Var 'b'))) (OneVal (Var 'a'))) (Klini (OneVal (Var 'a')))"
         inputReg' = convertString $ filter (\x -> x /= ' ') inputReg
         automate = makeAutomat(makeInitAutomat inputReg' []) (makeInitAutomat inputReg' []) 100
-        --genRegV = tryToDecrease $ fst $ genReg stdGen 3
-        -- x = (derByVar defReg 'b')
-        -- y = (derByVar(derByVar defReg 'b') 'a')
-    -- putStrLn $ postfixToInfix genRegV
-    --print (show (tryToDecrease inputReg'))
-    --print word
-    --print (show(infixToPrefix word))
-    --print (show (derByVar(derByVar defReg 'b') 'a'))
-    --print (show (derByVar(derByVar defReg 'b') 'b'))
-    --print (postfixToInfix genRegV)
     print (automate)
     putStrLn (convertListToString automate)
-    let list = nub (checkFinalStates (convertAutomat  (addDefaultNames $ reverse automate) 1))
-    print(list)
+    print (nub (checkFinalStates (convertAutomat  (addDefaultNames $ reverse automate) 1)))
     --print(foldr (++) "" (convertAutomat  (addDefaultNames $ reverse automate) 1))
-    outputFile $ "\t" ++ (foldr (\l r -> l ++ "\n\t" ++ r) "" (automateToString(convertAutomat  (addDefaultNames $ reverse automate) 1)))
+    let s = filter (/='"') (unwords (nub (checkFinalStates (convertAutomat  (addDefaultNames $ reverse automate) 1))))
+    print (s)
+    outputFile s ("\t" ++ (foldr (\l r -> l ++ "\n\t" ++ r) "" (automateToString(convertAutomat  (addDefaultNames $ reverse automate) 1)))) 
 
 
 makeInitAutomat :: Reg -> [(Reg, Char, Reg, Bool )] -> [(Reg, Char, Reg, Bool )]
