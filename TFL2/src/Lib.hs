@@ -152,7 +152,7 @@ incriseMul (Klini reg1) (Klini reg2) =
 incriseMul reg1 (Klini reg2) = 
     if (isEqReg reg1 reg2)
     then Klini reg1
-    else Mul (Klini reg1) (Klini reg2)
+    else Mul reg1 (Klini reg2)
 incriseMul reg1 reg2 = Mul reg1 reg2
 
 
@@ -192,6 +192,26 @@ outputFile  str =
 	    "rankdir=LR; \n\t" ++
         "dummy -> 1 \n" ++
         str ++ "\n}"
+
+--final states
+checkEps :: Reg -> Bool
+checkEps (OneVal (Var var)) = False
+checkEps (OneVal Empty) = True
+checkEps (OneVal Eps) = True
+checkEps (Klini _) = True
+checkEps (Variable reg1 reg2) = checkEps reg1 || checkEps reg2
+checkEps (Mul reg1 reg2) = checkEps reg1 && checkEps reg2
+checkEps _ = False
+
+checkFinalStates :: [(Reg, String, Char, Reg, String)] -> [String]
+checkFinalStates [] = []
+checkFinalStates ((reg1, name1, v, reg2, name2) : xs) =
+    if checkEps reg1 || checkEps reg2
+    then 
+        if checkEps reg1
+        then (show name1 : checkFinalStates xs)
+        else (show name2 : checkFinalStates xs)
+    else checkFinalStates xs
 
 
 addDefaultNames :: [(Reg, Char, Reg, Bool)] -> [(Reg, String, Char, Reg, String)]
@@ -235,15 +255,6 @@ addName n reg ((reg1, name1, c, reg2, name2) : xs ) =
         then ((reg1, name1, c, reg2, show n) : addName n reg xs)
         else ((reg1, name1, c, reg2, name2) : addName n reg xs)
 
---final states
-checkEps :: Reg -> Bool
-checkEps (OneVal (Var var)) = False
-checkEps (OneVal Empty) = True
-checkEps (OneVal Eps) = True
-checkEps (Klini _) = True
-checkEps (Variable reg1 reg2) = checkEps reg1 || checkEps reg2
-checkEps (Mul reg1 reg2) = checkEps reg1 && checkEps reg2
-checkEps _ = False
 
 convertString :: String -> Reg
 convertString [] = OneVal Empty
@@ -311,10 +322,11 @@ someFunc = do
     --print (show (derByVar(derByVar defReg 'b') 'a'))
     --print (show (derByVar(derByVar defReg 'b') 'b'))
     --print (postfixToInfix genRegV)
-    --print (automate)
+    print (automate)
     putStrLn (convertListToString automate)
+    print (checkFinalStates (addDefaultNames $ reverse automate))
     print(foldr (++) "" (convertAutomat  (addDefaultNames $ reverse automate) 1))
-    outputFile $ "\t" ++ (foldr (\l r -> l ++ "\n\t" ++ r) "" (convertAutomat  (addDefaultNames $ reverse automate) 1))
+   --outputFile $ "\t" ++ (foldr (\l r -> l ++ "\n\t" ++ r) "" (convertAutomat  (addDefaultNames $ reverse automate) 1))
 
 
 makeInitAutomat :: Reg -> [(Reg, Char, Reg, Bool )] -> [(Reg, Char, Reg, Bool )]
