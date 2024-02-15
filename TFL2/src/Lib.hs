@@ -3,6 +3,7 @@ module Lib
     ) where
 
 import System.Random
+import Data.List
 
 data Val = Var Char | Empty | Eps deriving (Show, Read)
 
@@ -201,7 +202,7 @@ checkEps (OneVal Eps) = True
 checkEps (Klini _) = True
 checkEps (Variable reg1 reg2) = checkEps reg1 || checkEps reg2
 checkEps (Mul reg1 reg2) = checkEps reg1 && checkEps reg2
-checkEps _ = False
+checkEps (Shuffle reg1 reg2) = checkEps reg1 && checkEps reg2
 
 checkFinalStates :: [(Reg, String, Char, Reg, String)] -> [String]
 checkFinalStates [] = []
@@ -213,13 +214,17 @@ checkFinalStates ((reg1, name1, v, reg2, name2) : xs) =
         else (show name2 : checkFinalStates xs)
     else checkFinalStates xs
 
+automateToString :: [(Reg, String, Char, Reg, String)] -> [String]
+automateToString [] = []
+automateToString ((reg1, name1, c, reg2, name2) : xs ) = 
+    (name1 ++ " -> " ++ name2 ++ " [label=\"" ++ [c] ++ "\"];") : automateToString xs
 
 addDefaultNames :: [(Reg, Char, Reg, Bool)] -> [(Reg, String, Char, Reg, String)]
 addDefaultNames [] = []
 addDefaultNames ((reg1, c, reg2, _) : xs) = (reg1, "", c, reg2, "") : addDefaultNames xs
 
 
-convertAutomat :: [(Reg, String, Char, Reg, String)] -> Int -> [String]
+convertAutomat :: [(Reg, String, Char, Reg, String)] -> Int -> [(Reg, String, Char, Reg, String)]
 convertAutomat [] _ = []
 convertAutomat ((reg1, name1, c, reg2, name2) : xs ) number =
     case (name1, name2) of
@@ -227,21 +232,27 @@ convertAutomat ((reg1, name1, c, reg2, name2) : xs ) number =
             if isEqReg reg1 reg2
             then 
                 let newxs = addName number reg1 xs
-                in (show number ++ " -> " ++ show number ++ " [label=\"" ++ [c] ++ "\"];") : convertAutomat newxs (number+1)
+                in (reg1, show number, c, reg2, show number) : convertAutomat newxs (number+1)
+                --in (show number ++ " -> " ++ show number ++ " [label=\"" ++ [c] ++ "\"];") : convertAutomat newxs (number+1)
             else
                 let
                     newxs = addName number reg1 xs
                     verynewxs = addName (number+1) reg2 newxs
-                in (show number ++ " -> " ++ show (number+1) ++ " [label=\"" ++ [c] ++ "\"];") : convertAutomat verynewxs (number+2)
+                in (reg1, show number, c, reg2, show (number+1)) : convertAutomat verynewxs (number+2)
+                --in (show number ++ " -> " ++ show (number+1) ++ " [label=\"" ++ [c] ++ "\"];") : convertAutomat verynewxs (number+2)
         ("", n2) ->
             let newxs = addName number reg1 xs
-            in (show number ++ " -> " ++ n2 ++ " [label=\"" ++ [c] ++ "\"];") : convertAutomat newxs (number+1)
+            in (reg1, show number, c, reg2, n2) : convertAutomat newxs (number+1)
+            --in (show number ++ " -> " ++ n2 ++ " [label=\"" ++ [c] ++ "\"];") : convertAutomat newxs (number+1)
         (n1, "") ->
             let newxs = addName number reg2 xs
-            in (n1 ++ " -> " ++ show number ++ " [label=\"" ++ [c] ++ "\"];") : convertAutomat newxs (number+1)
+            in (reg1, n1, c, reg2, show number) : convertAutomat newxs (number+1)
+            --in (n1 ++ " -> " ++ show number ++ " [label=\"" ++ [c] ++ "\"];") : convertAutomat newxs (number+1)
         (n1,n2) ->
-            (n1 ++ " -> " ++ n2 ++ " [label=\"" ++ [c] ++ "\"];") : convertAutomat xs number
-        
+            (reg1, n1, c, reg2, n2) : convertAutomat xs (number+1)
+            --(n1 ++ " -> " ++ n2 ++ " [label=\"" ++ [c] ++ "\"];") : convertAutomat xs number
+
+
 addName :: Int -> Reg -> [(Reg, String, Char, Reg, String)] -> [(Reg, String, Char, Reg, String)]
 addName _ _ [] = []
 addName n reg ((reg1, name1, c, reg2, name2) : xs ) =
@@ -324,9 +335,10 @@ someFunc = do
     --print (postfixToInfix genRegV)
     print (automate)
     putStrLn (convertListToString automate)
-    print (checkFinalStates (addDefaultNames $ reverse automate))
-    print(foldr (++) "" (convertAutomat  (addDefaultNames $ reverse automate) 1))
-   --outputFile $ "\t" ++ (foldr (\l r -> l ++ "\n\t" ++ r) "" (convertAutomat  (addDefaultNames $ reverse automate) 1))
+    let list = nub (checkFinalStates (convertAutomat  (addDefaultNames $ reverse automate) 1))
+    print(list)
+    --print(foldr (++) "" (convertAutomat  (addDefaultNames $ reverse automate) 1))
+    outputFile $ "\t" ++ (foldr (\l r -> l ++ "\n\t" ++ r) "" (automateToString(convertAutomat  (addDefaultNames $ reverse automate) 1)))
 
 
 makeInitAutomat :: Reg -> [(Reg, Char, Reg, Bool )] -> [(Reg, Char, Reg, Bool )]
