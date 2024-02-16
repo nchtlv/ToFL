@@ -19,18 +19,16 @@ def loadModel(modelPath):
     return cleanAlphabet(K), cleanAlphabet(V), cleanProduction(P)
 
 
-# Make production easy to work with
+
 def cleanProduction(expression):
     result = []
-    # remove spaces and explode on ";"
     rawRulse = expression.replace('\n', '').split(';')
 
     for rule in rawRulse:
-        # Explode evry rule on "->" and make a couple
         leftSide = rule.split(' -> ')[0].replace(' ', '')
         rightTerms = rule.split(' -> ')[1].split(' | ')
         for term in rightTerms:
-            result.append((leftSide, term.split(' ')))
+            result.append((leftSide, list(filter(lambda x: len(x) > 0,term.split(' ')))))
     return result
 
 
